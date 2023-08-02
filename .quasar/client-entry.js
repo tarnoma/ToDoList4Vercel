@@ -47,8 +47,6 @@ console.info('[Quasar] Running SPA.')
 
 
 
-
-
 const publicPath = ``
 
 
@@ -136,15 +134,29 @@ async function start ({
 createQuasarApp(createApp, quasarUserOptions)
 
   .then(app => {
-    return Promise.all([
+    // eventually remove this when Cordova/Capacitor/Electron support becomes old
+    const [ method, mapFn ] = Promise.allSettled !== void 0
+      ? [
+        'allSettled',
+        bootFiles => bootFiles.map(result => {
+          if (result.status === 'rejected') {
+            console.error('[Quasar] boot error:', result.reason)
+            return
+          }
+          return result.value.default
+        })
+      ]
+      : [
+        'all',
+        bootFiles => bootFiles.map(entry => entry.default)
+      ]
+
+    return Promise[ method ]([
       
       import(/* webpackMode: "eager" */ 'boot/i18n')
       
     ]).then(bootFiles => {
-      const boot = bootFiles
-        .map(entry => entry.default)
-        .filter(entry => typeof entry === 'function')
-
+      const boot = mapFn(bootFiles).filter(entry => typeof entry === 'function')
       start(app, boot)
     })
   })
